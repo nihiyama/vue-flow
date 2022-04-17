@@ -24,10 +24,11 @@ const eventToFlowTransform = (eventTransform: ZoomTransform): FlowTransform => (
 const isWrappedWithClass = (event: Event, className: string | undefined) => (event.target as Element).closest(`.${className}`)
 
 const clampedZoom = clamp(store.defaultZoom, store.minZoom, store.maxZoom)
-const transform = ref({
+store.viewport = {
   ...clampPosition({ x: store.defaultPosition[0], y: store.defaultPosition[1] }, store.translateExtent),
   zoom: clampedZoom,
-})
+}
+
 const { width, height } = useElementBounding(viewportEl)
 
 watch(
@@ -44,7 +45,7 @@ onMounted(() => {
   const d3Selection = select(viewportEl.value).call(d3Zoom)
   const d3ZoomHandler = d3Selection.on('wheel.zoom')
 
-  const updatedTransform = zoomIdentity.translate(transform.value.x, transform.value.y).scale(transform.value.zoom)
+  const updatedTransform = zoomIdentity.translate(store.viewport.x, store.viewport.y).scale(store.viewport.zoom)
   d3Zoom.transform(d3Selection, updatedTransform)
 
   store.setState({
@@ -59,8 +60,8 @@ onMounted(() => {
       d3Zoom.on('zoom', null)
     } else {
       d3Zoom.on('zoom', (event: D3ZoomEvent<HTMLDivElement, any>) => {
-        store.setState({ viewport: { x: event.transform.x, y: event.transform.y, zoom: event.transform.k } })
         const flowTransform = eventToFlowTransform(event.transform)
+        store.viewport = flowTransform
         store.hooks.move.trigger({ event, flowTransform })
       })
     }
@@ -70,14 +71,14 @@ onMounted(() => {
 
   d3Zoom.on('start', (event: D3ZoomEvent<HTMLDivElement, any>) => {
     const flowTransform = eventToFlowTransform(event.transform)
-    transform.value = flowTransform
+    store.viewport = flowTransform
     store.hooks.moveStart.trigger({ event, flowTransform })
   })
 
   d3Zoom.on('end', (event: D3ZoomEvent<HTMLDivElement, any>) => {
-    if (viewChanged(transform.value, event.transform)) {
+    if (viewChanged(store.viewport, event.transform)) {
       const flowTransform = eventToFlowTransform(event.transform)
-      transform.value = flowTransform
+      store.viewport = flowTransform
       store.hooks.moveEnd.trigger({ event, flowTransform })
     }
   })

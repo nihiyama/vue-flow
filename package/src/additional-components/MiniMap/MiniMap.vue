@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { zoomIdentity } from 'd3-zoom'
 import { ShapeRendering, MiniMapNodeFunc, GraphNode } from '../../types'
 import { useVueFlow, useWindow } from '../../composables'
 import { getBoundsofRects, getRectOfNodes } from '../../utils'
@@ -34,12 +35,14 @@ const nodeClassNameFunc =
 const shapeRendering: ShapeRendering = typeof window === 'undefined' || !!window.chrome ? 'crispEdges' : 'geometricPrecision'
 
 const bb = computed(() => getRectOfNodes(store.getNodes))
+
 const viewBB = computed(() => ({
   x: -store.viewport.x / store.viewport.zoom,
   y: -store.viewport.y / store.viewport.zoom,
   width: store.dimensions.width / store.viewport.zoom,
   height: store.dimensions.height / store.viewport.zoom,
 }))
+
 const viewBox = computed(() => {
   const boundingRect = store.getNodes && store.getNodes.length ? getBoundsofRects(bb.value, viewBB.value) : viewBB.value
   const scaledWidth = boundingRect.width / elementWidth
@@ -78,6 +81,32 @@ const onNodeClick = (event: MouseEvent, node: GraphNode) => {
 const onNodeDblClick = (event: MouseEvent, node: GraphNode) => {
   store.hooks.miniMapNodeDoubleClick.trigger({ event, node })
 }
+
+const dragging = ref(false)
+const el = templateRef<SVGElement>('el', null)
+const handleDrag = ({ clientX, clientY }: MouseEvent) => {
+  const { left, top } = el.value.getBoundingClientRect()
+
+  store.viewport.x = ((clientX - left)) / store.viewport.zoom
+  store.viewport.y = (clientY - top) / store.viewport.zoom
+
+  const updatedTransform = zoomIdentity.translate(store.viewport.x, store.viewport.y).scale(store.viewport.zoom)
+  store.d3Zoom?.transform(store.d3Selection!, updatedTransform)
+}
+
+const onDragStart = (e: MouseEvent) => {
+  dragging.value = true
+}
+
+const onDrag = (e: MouseEvent) => {
+  if (dragging.value) {
+    handleDrag(e)
+  }
+}
+
+const onDragStop = () => {
+  dragging.value = false
+}
 </script>
 <script lang="ts">
 export default {
@@ -86,10 +115,14 @@ export default {
 </script>
 <template>
   <svg
+    ref="el"
     :width="elementWidth"
     :height="elementHeight"
     :viewBox="`${viewBox.x || 0} ${viewBox.y || 0} ${viewBox.width || 0} ${viewBox.height || 0}`"
     class="vue-flow__minimap"
+    @mousedown="onDragStart"
+    @mousemove="onDrag"
+    @mouseup="onDragStop"
   >
     <template v-for="node of store.getNodes" :key="`mini-map-node-${node.id}`">
       <MiniMapNode

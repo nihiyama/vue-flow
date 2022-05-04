@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ConnectionLine, EdgeWrapper } from '../../components'
 import { useVueFlow } from '../../composables'
-import { groupEdgesByZLevel } from '../../utils'
+import { groupEdgesByZLevel, warn } from '../../utils'
 import type { EdgeComponent, GraphEdge } from '../../types'
 import { Slots } from '../../context'
 import MarkerDefinitions from './MarkerDefinitions.vue'
@@ -78,7 +78,7 @@ const getType = (edge: GraphEdge) => {
 
   const slot = slots?.[`edge-${name}`]
   if (!slot?.({})) {
-    console.warn(`[vueflow]: Edge type "${edge.type}" not found and no edge-slot detected. Using fallback type "default".`)
+    warn(`Edge type "${edge.type}" not found and no edge-slot detected. Using fallback type "default".`)
     return false
   }
 
